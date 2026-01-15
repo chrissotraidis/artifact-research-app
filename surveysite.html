@@ -1,0 +1,677 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { ChevronRight, Check, HelpCircle, ArrowRight, Clock } from 'lucide-react';
+
+/* ========================================
+  FIREBASE CONFIGURATION & INIT
+  ========================================
+*/
+const firebaseConfig = JSON.parse(__firebase_config);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+/* ========================================
+  STYLES & FONTS
+  ========================================
+*/
+const GlobalStyles = () => (
+  <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;700&display=swap');
+    
+    body {
+      background-color: #0D0D0D;
+      color: #FAFAFA;
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+    
+    .font-display { font-family: 'Space Grotesk', sans-serif; }
+    .font-body { font-family: 'Inter', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #0D0D0D; }
+    ::-webkit-scrollbar-thumb { background: #2A2A2A; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+    /* Animation Utilities */
+    .fade-slide-enter {
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeSlideIn 0.5s ease-out forwards;
+    }
+    
+    @keyframes fadeSlideIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .input-focus-ring:focus-within {
+      border-color: #E0FF4F;
+      box-shadow: 0 0 0 1px rgba(224, 255, 79, 0.1);
+    }
+    
+    /* Custom Checkbox */
+    .custom-checkbox:checked {
+      background-color: #E0FF4F;
+      border-color: #E0FF4F;
+      background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='%230D0D0D' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+    }
+  `}</style>
+);
+
+/* ========================================
+  COMPONENTS
+  ========================================
+*/
+
+const Button = ({ children, onClick, disabled, variant = 'primary', className = '' }) => {
+  const baseStyle = "font-medium text-base transition-all duration-200 ease-out rounded-lg flex items-center justify-center gap-2";
+  
+  const variants = {
+    primary: "bg-[#E0FF4F] text-[#0D0D0D] hover:brightness-110 disabled:opacity-40 disabled:hover:brightness-100 px-8 py-4",
+    secondary: "bg-transparent text-[#A0A0A0] border border-[#2A2A2A] hover:border-[#666666] hover:text-[#FAFAFA] px-6 py-3",
+    ghost: "text-[#666666] hover:text-[#FAFAFA] text-sm px-4 py-2"
+  };
+
+  return (
+    <button 
+      onClick={onClick} 
+      disabled={disabled} 
+      className={`${baseStyle} ${variants[variant]} ${className}`}
+    >
+      {children}
+    </button>
+  );
+};
+
+const Input = ({ label, value, onChange, placeholder, type = "text" }) => (
+  <div className="flex flex-col gap-2 w-full mb-6 group">
+    <label className="text-[#666666] text-sm font-medium ml-1 transition-colors group-focus-within:text-[#E0FF4F]">
+      {label}
+    </label>
+    <input
+      type={type}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-4 py-4 text-[#FAFAFA] placeholder-[#666666] outline-none transition-all duration-200 focus:border-[#E0FF4F] w-full"
+    />
+  </div>
+);
+
+const RadioCard = ({ label, selected, onClick }) => (
+  <div 
+    onClick={onClick}
+    className={`
+      w-full p-5 rounded-lg border cursor-pointer transition-all duration-200 flex items-center justify-between group
+      ${selected 
+        ? 'bg-[#1A1A1A] border-[#E0FF4F] shadow-[0_0_15px_rgba(224,255,79,0.05)]' 
+        : 'bg-[#1A1A1A] border-[#2A2A2A] hover:border-[#444444]'}
+    `}
+  >
+    <span className={`text-base transition-colors ${selected ? 'text-[#FAFAFA]' : 'text-[#A0A0A0] group-hover:text-[#e5e5e5]'}`}>
+      {label}
+    </span>
+    <div className={`
+      w-5 h-5 rounded-full border flex items-center justify-center transition-colors
+      ${selected ? 'border-[#E0FF4F]' : 'border-[#444444]'}
+    `}>
+      {selected && <div className="w-2.5 h-2.5 rounded-full bg-[#E0FF4F]" />}
+    </div>
+  </div>
+);
+
+const TextArea = ({ value, onChange, placeholder, hint }) => {
+  const [wordCount, setWordCount] = useState(0);
+
+  useEffect(() => {
+    const words = value.trim().split(/\s+/);
+    setWordCount(value.trim() === '' ? 0 : words.length);
+  }, [value]);
+
+  return (
+    <div className="w-full relative mb-8">
+      <textarea
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg p-5 text-[#FAFAFA] placeholder-[#666666] outline-none transition-all duration-200 focus:border-[#E0FF4F] min-h-[240px] resize-y font-body leading-relaxed text-lg"
+      />
+      <div className="absolute bottom-4 right-4 font-mono text-xs text-[#666666]">
+        {wordCount} WORDS
+      </div>
+    </div>
+  );
+};
+
+const RatingScale = ({ value, onChange }) => {
+  return (
+    <div className="flex gap-3 w-full justify-between sm:justify-start">
+      {[1, 2, 3, 4, 5].map((num) => (
+        <button
+          key={num}
+          onClick={() => onChange(num)}
+          className={`
+            w-12 h-12 rounded-lg border font-mono text-lg transition-all duration-200
+            ${value === num 
+              ? 'bg-[#E0FF4F] border-[#E0FF4F] text-[#0D0D0D] font-bold' 
+              : 'bg-[#1A1A1A] border-[#2A2A2A] text-[#A0A0A0] hover:border-[#666666]'}
+          `}
+        >
+          {num}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+/* ========================================
+  MAIN APPLICATION
+  ========================================
+*/
+
+export default function ArtifactSurvey() {
+  const [user, setUser] = useState(null);
+  const [step, setStep] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sessionStartTime, setSessionStartTime] = useState(null);
+  
+  // Form State aligned with Research Data Model
+  const [formData, setFormData] = useState({
+    // Consent
+    consent: false,
+    
+    // Intake
+    firstName: '',
+    segment: '', // Technical-adjacent, Non-technical, Engineer, Other
+    has_written_specs: '', // Regularly, Occasionally, Rarely/Never
+    vibe_coding_experience: '', // Extensive, Little, Know/Not used, Dont know
+    
+    // Stimulus (Todo App MVP)
+    stimulus: 'todo_app',
+    stimulus_familiarity: '',
+    
+    // Intent Capture
+    intentDescription: '',
+    hint_expanded: false,
+    
+    // Reflection
+    difficultyRating: null,
+    vocabGap: '', // Yes/No/Unsure
+    difficultyDescription: '', // If vocabGap is Yes
+    otherThoughts: '',
+    followUpInterest: '', // Yes/No
+    email: '' // Collected at end
+  });
+
+  // Hints Accordion State
+  const [showHints, setShowHints] = useState(false);
+
+  // Authentication
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (error) {
+        console.error("Auth error:", error);
+      }
+    };
+    initAuth();
+    
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Handlers
+  const updateData = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleHintToggle = () => {
+    if (!showHints) {
+      updateData('hint_expanded', true);
+    }
+    setShowHints(!showHints);
+  };
+
+  const nextStep = () => {
+    if (step === 0 && !sessionStartTime) {
+      setSessionStartTime(Date.now()); // Start timer after consent
+    }
+    setDirection(1);
+    setStep(prev => prev + 1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const prevStep = () => {
+    setDirection(-1);
+    setStep(prev => prev - 1);
+  };
+
+  const handleSubmit = async () => {
+    if (!user) return;
+    setIsSubmitting(true);
+    
+    const endTime = Date.now();
+    const durationSeconds = sessionStartTime ? Math.floor((endTime - sessionStartTime) / 1000) : 0;
+    
+    try {
+      const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'survey_responses');
+      await addDoc(collectionRef, {
+        userId: user.uid,
+        ...formData,
+        time_spent_seconds: durationSeconds,
+        submittedAt: serverTimestamp(),
+        appVersion: '1.1.0-mvp' // Phase 0 MVP
+      });
+      nextStep(); // Go to Thank You
+    } catch (error) {
+      console.error("Submission error", error);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Progress Calculation (Steps 0-5 active, 6 is end)
+  const progress = Math.min(((step + 1) / 6) * 100, 100);
+
+  /* ========================================
+    SCREENS
+    ========================================
+  */
+
+  const renderScreen = () => {
+    switch(step) {
+      // SCREEN 1: WELCOME & CONSENT
+      case 0:
+        return (
+          <div className="flex flex-col items-center text-center fade-slide-enter">
+            <div className="mb-12 opacity-80">
+              <span className="font-mono text-xs tracking-widest text-[#E0FF4F] uppercase border border-[#2A2A2A] px-3 py-1 rounded-full bg-[#1A1A1A]">
+                Artifact Research
+              </span>
+            </div>
+            
+            <h1 className="font-display text-3xl md:text-5xl font-bold tracking-tight mb-8 leading-tight max-w-2xl text-[#FAFAFA]">
+              Help us understand how people naturally describe software
+            </h1>
+            
+            <p className="font-body text-lg text-[#A0A0A0] max-w-xl mb-16 leading-relaxed">
+              We’re researching how different people think about and describe applications. 
+              This will take 10-15 minutes. Your responses help us build better tools.
+            </p>
+
+            <div className="w-full max-w-md bg-[#1A1A1A] p-6 rounded-xl border border-[#2A2A2A] mb-10 text-left">
+              <label className="flex items-start gap-4 cursor-pointer group">
+                <input 
+                  type="checkbox" 
+                  className="custom-checkbox appearance-none w-6 h-6 border-2 border-[#2A2A2A] rounded flex-shrink-0 transition-colors cursor-pointer mt-0.5"
+                  checked={formData.consent}
+                  onChange={(e) => updateData('consent', e.target.checked)}
+                />
+                <span className="text-[#A0A0A0] text-sm leading-relaxed group-hover:text-[#FAFAFA] transition-colors">
+                  I understand my responses will be used for research purposes and may be anonymized and shared.
+                </span>
+              </label>
+            </div>
+
+            <Button 
+              onClick={nextStep} 
+              disabled={!formData.consent}
+              className="w-full max-w-xs"
+            >
+              Continue <ArrowRight size={18} />
+            </Button>
+          </div>
+        );
+
+      // SCREEN 2: INTAKE (Updated with Research Segments)
+      case 1:
+        return (
+          <div className="fade-slide-enter w-full max-w-lg mx-auto">
+            <h2 className="font-display text-3xl font-bold mb-10 text-[#FAFAFA]">Tell us a bit about yourself</h2>
+            
+            <Input 
+              label="FIRST NAME" 
+              placeholder="e.g., Alex" 
+              value={formData.firstName}
+              onChange={(e) => updateData('firstName', e.target.value)}
+            />
+
+            <div className="mb-8">
+              <label className="text-[#666666] text-sm font-medium mb-3 block ml-1 uppercase tracking-wide">Which best describes your work?</label>
+              <div className="flex flex-col gap-3">
+                {[
+                  { val: 'Technical-adjacent', lbl: 'Technical-adjacent (PM, BA, Designer)' },
+                  { val: 'Non-technical', lbl: 'Non-technical (Business owner, Creator)' },
+                  { val: 'Engineer', lbl: 'Software Engineer / Developer' },
+                  { val: 'Other', lbl: 'Other' }
+                ].map(opt => (
+                  <RadioCard 
+                    key={opt.val} 
+                    label={opt.lbl} 
+                    selected={formData.segment === opt.val} 
+                    onClick={() => updateData('segment', opt.val)} 
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-8">
+              <label className="text-[#666666] text-sm font-medium mb-3 block ml-1 uppercase tracking-wide">Have you ever written requirements or specs?</label>
+              <div className="flex flex-col gap-3">
+                {['Regularly', 'Occasionally', 'Rarely / Never'].map(opt => (
+                  <RadioCard 
+                    key={opt} 
+                    label={opt} 
+                    selected={formData.has_written_specs === opt} 
+                    onClick={() => updateData('has_written_specs', opt)} 
+                  />
+                ))}
+              </div>
+            </div>
+            
+            <div className="mb-12">
+              <label className="text-[#666666] text-sm font-medium mb-3 block ml-1 uppercase tracking-wide">Experience with "vibe coding" tools?</label>
+              <span className="text-xs text-[#666666] block mb-3 ml-1 -mt-2">(e.g., Cursor, Lovable, Bolt, Replit Agent)</span>
+              <div className="flex flex-col gap-3">
+                {[
+                  { val: 'Extensive', lbl: 'Extensive experience' },
+                  { val: 'Little', lbl: 'Tried it a little' },
+                  { val: 'KnowNotUsed', lbl: 'Know of them, haven\'t used' },
+                  { val: 'DontKnow', lbl: 'Don\'t know what this is' }
+                ].map(opt => (
+                  <RadioCard 
+                    key={opt.val} 
+                    label={opt.lbl} 
+                    selected={formData.vibe_coding_experience === opt.val} 
+                    onClick={() => updateData('vibe_coding_experience', opt.val)} 
+                  />
+                ))}
+              </div>
+            </div>
+
+            <Button 
+              onClick={nextStep} 
+              disabled={!formData.firstName || !formData.segment} 
+              className="w-full"
+            >
+              Continue
+            </Button>
+          </div>
+        );
+
+      // SCREEN 3: STIMULUS (Todo App MVP)
+      case 2:
+        return (
+          <div className="fade-slide-enter w-full max-w-2xl mx-auto flex flex-col items-center text-center">
+            <div className="w-16 h-16 rounded-full bg-[#1A1A1A] border border-[#2A2A2A] flex items-center justify-center mb-8 text-[#E0FF4F]">
+              <HelpCircle size={32} strokeWidth={1.5} />
+            </div>
+
+            <h2 className="font-display text-3xl md:text-4xl font-bold mb-6 text-[#FAFAFA]">Scenario: A Better Todo App</h2>
+            
+            <div className="bg-[#1A1A1A] border border-[#2A2A2A] p-8 rounded-xl mb-10 max-w-xl shadow-2xl">
+              <p className="font-body text-lg text-[#FAFAFA] leading-relaxed opacity-90">
+                "Imagine you want to build a simple <strong>Todo App</strong> — one that actually works the way <em>you</em> think. Don't worry about technical details or how other apps work. Just describe what you'd want it to do for you."
+              </p>
+            </div>
+
+            <div className="w-full max-w-md mb-12 text-left">
+              <label className="text-[#666666] text-sm font-medium mb-3 block ml-1 uppercase tracking-wider">How familiar are you with todo apps?</label>
+              <div className="flex flex-col gap-3">
+                 {['Very familiar (I use one regularly)', 'Somewhat familiar', 'Not very familiar'].map(opt => (
+                  <RadioCard 
+                    key={opt} 
+                    label={opt} 
+                    selected={formData.stimulus_familiarity === opt} 
+                    onClick={() => updateData('stimulus_familiarity', opt)} 
+                  />
+                ))}
+              </div>
+            </div>
+
+            <Button 
+              onClick={nextStep} 
+              disabled={!formData.stimulus_familiarity} 
+              className="w-full max-w-xs"
+            >
+              I’m ready to describe it
+            </Button>
+          </div>
+        );
+
+      // SCREEN 4: INTENT CAPTURE (CORE)
+      case 3:
+        return (
+          <div className="fade-slide-enter w-full max-w-3xl mx-auto">
+            <div className="mb-8">
+              <h2 className="font-display text-3xl md:text-4xl font-bold mb-3 text-[#FAFAFA]">Describe the app you wish existed</h2>
+              <p className="text-[#A0A0A0] text-lg">Write as much or as little as you want. There’s no right or wrong answer.</p>
+            </div>
+
+            <TextArea 
+              value={formData.intentDescription}
+              onChange={(e) => updateData('intentDescription', e.target.value)}
+              placeholder="Start describing your todo app idea here..."
+            />
+
+            {/* Hints Section */}
+            <div className="mb-12 border border-[#2A2A2A] rounded-lg bg-[#111111] overflow-hidden">
+              <button 
+                onClick={handleHintToggle}
+                className="w-full flex items-center justify-between p-4 text-[#A0A0A0] hover:text-[#FAFAFA] hover:bg-[#1A1A1A] transition-colors"
+              >
+                <span className="font-medium text-sm flex items-center gap-2">
+                  <HelpCircle size={16} /> Need a hint?
+                </span>
+                <ChevronRight size={16} className={`transition-transform duration-300 ${showHints ? 'rotate-90' : ''}`} />
+              </button>
+              
+              <div className={`transition-all duration-300 ease-in-out overflow-hidden ${showHints ? 'max-h-60 opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div className="p-5 pt-0 text-[#666666] text-sm leading-relaxed border-t border-[#2A2A2A]">
+                  <ul className="space-y-2 mt-4 list-disc pl-4">
+                    <li>What would someone do with this app?</li>
+                    <li>What information would it need to track?</li>
+                    <li>How would it look or feel to use?</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button 
+                onClick={nextStep} 
+                disabled={formData.intentDescription.length < 10} 
+                className="w-full sm:w-auto"
+              >
+                Submit & Continue
+              </Button>
+            </div>
+          </div>
+        );
+
+      // SCREEN 5: REFLECTION (Merged Logic / Research Screen 7)
+      case 4:
+        return (
+          <div className="fade-slide-enter w-full max-w-lg mx-auto">
+             <h2 className="font-display text-3xl font-bold mb-2 text-[#FAFAFA]">Almost done</h2>
+             <p className="text-[#A0A0A0] mb-10">A few quick reflections on your thought process.</p>
+
+             {/* Q1 Difficulty */}
+             <div className="mb-10">
+               <label className="text-[#FAFAFA] text-base font-medium mb-4 block">
+                 How easy or hard was it to describe the app you wanted?
+                 <span className="block text-sm text-[#666666] font-normal mt-1">(1 = Very Easy, 5 = Very Hard)</span>
+               </label>
+               <RatingScale 
+                  value={formData.difficultyRating}
+                  onChange={(val) => updateData('difficultyRating', val)}
+               />
+             </div>
+
+             {/* Q2 Vocab Gap */}
+             <div className="mb-8">
+                <label className="text-[#FAFAFA] text-base font-medium mb-4 block">
+                  Did you feel like you were missing vocabulary or concepts?
+                </label>
+                <div className="flex flex-col gap-3">
+                  {['Yes', 'No', 'Unsure'].map(opt => (
+                    <RadioCard 
+                      key={opt}
+                      label={opt}
+                      selected={formData.vocabGap === opt}
+                      onClick={() => updateData('vocabGap', opt)}
+                    />
+                  ))}
+                </div>
+             </div>
+
+             {/* Conditional: What felt hard */}
+             {formData.vocabGap === 'Yes' && (
+                <div className="mb-8 fade-slide-enter">
+                  <Input 
+                    label="WHAT FELT HARD TO EXPRESS?"
+                    placeholder="e.g., describing the layout, the logic..."
+                    value={formData.difficultyDescription}
+                    onChange={(e) => updateData('difficultyDescription', e.target.value)}
+                  />
+                </div>
+             )}
+
+             {/* Optional Textarea */}
+             <div className="mb-10">
+                <label className="text-[#666666] text-sm font-medium mb-2 block uppercase tracking-wide">Anything else you'd like to share?</label>
+                <textarea
+                  value={formData.otherThoughts}
+                  onChange={(e) => updateData('otherThoughts', e.target.value)}
+                  placeholder="Any other thoughts on this process?"
+                  className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg p-4 text-[#FAFAFA] placeholder-[#666666] outline-none focus:border-[#E0FF4F] min-h-[100px] text-sm"
+                />
+             </div>
+
+             {/* Follow Up */}
+             <div className="mb-8">
+               <label className="text-[#FAFAFA] text-base font-medium mb-4 block">
+                 Would you be open to a 15-minute follow-up conversation?
+               </label>
+               <div className="flex gap-4">
+                 <button 
+                   onClick={() => updateData('followUpInterest', 'Yes')}
+                   className={`flex-1 py-3 rounded-lg border transition-all ${formData.followUpInterest === 'Yes' ? 'bg-[#1A1A1A] border-[#E0FF4F] text-[#FAFAFA]' : 'border-[#2A2A2A] text-[#A0A0A0]'}`}
+                 >Yes</button>
+                 <button 
+                   onClick={() => updateData('followUpInterest', 'No')}
+                   className={`flex-1 py-3 rounded-lg border transition-all ${formData.followUpInterest === 'No' ? 'bg-[#1A1A1A] border-[#E0FF4F] text-[#FAFAFA]' : 'border-[#2A2A2A] text-[#A0A0A0]'}`}
+                 >No</button>
+               </div>
+             </div>
+
+             {/* Conditional Email */}
+             {formData.followUpInterest === 'Yes' && (
+               <div className="mb-12 fade-slide-enter">
+                 <Input 
+                   label="EMAIL ADDRESS"
+                   type="email"
+                   placeholder="name@example.com"
+                   value={formData.email}
+                   onChange={(e) => updateData('email', e.target.value)}
+                 />
+               </div>
+             )}
+
+             <Button 
+                onClick={handleSubmit}
+                disabled={!formData.difficultyRating || isSubmitting}
+                className="w-full"
+             >
+                {isSubmitting ? 'Submitting...' : 'Submit'}
+             </Button>
+          </div>
+        );
+
+      // SCREEN 6: THANK YOU
+      case 5:
+        return (
+          <div className="fade-slide-enter flex flex-col items-center text-center justify-center min-h-[50vh]">
+            <div className="w-20 h-20 rounded-full bg-[#1A1A1A] border border-[#E0FF4F] flex items-center justify-center mb-8 text-[#E0FF4F] shadow-[0_0_30px_rgba(224,255,79,0.2)]">
+              <Check size={40} strokeWidth={2.5} />
+            </div>
+            
+            <h1 className="font-display text-4xl md:text-5xl font-bold tracking-tight mb-6 text-[#FAFAFA]">
+              Thank you!
+            </h1>
+            
+            <p className="font-body text-xl text-[#A0A0A0] max-w-md mb-12">
+              Your responses have been saved. We really appreciate you taking the time to help us research this.
+            </p>
+
+            <div className="flex flex-col gap-4 w-full max-w-xs">
+              {/* Optional link placeholder */}
+              <div className="text-[#666666] text-sm">
+                We'll reach out soon if you opted for a follow-up.
+              </div>
+            </div>
+          </div>
+        );
+
+      default: return null;
+    }
+  };
+
+  /* ========================================
+    LAYOUT WRAPPER
+    ========================================
+  */
+  return (
+    <div className="min-h-screen bg-[#0D0D0D] text-[#FAFAFA] selection:bg-[#E0FF4F] selection:text-[#0D0D0D]">
+      <GlobalStyles />
+      
+      {/* Progress Bar (Only visible if not Thank You screen) */}
+      {step < 5 && (
+        <div className="fixed top-0 left-0 w-full h-[3px] bg-[#2A2A2A] z-50">
+          <div 
+            className="h-full bg-[#E0FF4F] transition-all duration-700 ease-in-out"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
+
+      {/* Main Content */}
+      <main className="relative w-full min-h-screen flex flex-col">
+        {/* Header/Nav */}
+        {step > 0 && step < 5 && (
+          <div className="absolute top-0 w-full p-6 md:p-8 flex justify-between items-center z-10">
+             <button 
+                onClick={prevStep}
+                className="text-[#666666] hover:text-[#FAFAFA] font-mono text-xs uppercase tracking-wider transition-colors"
+             >
+               ← Back
+             </button>
+             <div className="text-[#444444] font-mono text-xs">
+               0{step + 1} / 05
+             </div>
+          </div>
+        )}
+
+        <div className="flex-grow flex items-center justify-center px-6 py-24 md:py-32 w-full">
+          {renderScreen()}
+        </div>
+        
+      </main>
+    </div>
+  );
+}
