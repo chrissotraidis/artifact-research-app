@@ -14,32 +14,17 @@ This app supports Artifact's core thesis that **the document is the interface**.
 - DxD (Design by Discovery) methodology  
 - AI prompt engineering and interpretation layer
 
-## Target Segments
-
-| Segment | Description |
-|---------|-------------|
-| **Technical-adjacent** | PMs, BAs, Designers — familiar with software process |
-| **Non-technical** | Small business owners, tradespeople, creators |
-| **Software engineers** | Developers, architects (control group) |
-
-## Survey Flow
-
-1. **Welcome & Consent** — Set expectations and capture consent
-2. **Participant Intake** — Segment classification (name, work type, experience)
-3. **Stimulus Introduction** — Present the todo app scenario
-4. **Intent Capture** — Core research artifact: freeform description capture
-5. **Reflection** — Difficulty rating, vocabulary gaps, follow-up interest
-6. **Thank You** — Confirmation and next steps
-
 ## Tech Stack
 
 | Layer | Technology |
 |-------|------------|
-| **Frontend** | React (currently single-file, componentization planned) |
-| **Backend** | Firebase (MVP) → PocketBase (planned) |
-| **Hosting** | Zo Computer (planned) |
+| **Frontend** | Next.js 16 + TypeScript + TailwindCSS |
+| **Backend** | PocketBase (SQLite embedded) |
+| **Hosting** | Zo Computer (VPS) |
 
-## Getting Started
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
@@ -54,42 +39,204 @@ cd artifact-research-app
 npm install
 ```
 
-### Development
+### Development (Frontend Only)
 
 ```bash
 npm run dev
 ```
 
-### Build
+App runs at http://localhost:3000
+
+> **Note**: Without PocketBase running, survey data will be logged to console only.
+
+---
+
+## 🗄️ PocketBase Setup
+
+### Local Development
 
 ```bash
-npm run build
+cd pocketbase
+
+# Download PocketBase (macOS Apple Silicon)
+curl -L https://github.com/pocketbase/pocketbase/releases/download/v0.35.1/pocketbase_0.35.1_darwin_arm64.zip -o pocketbase.zip
+unzip pocketbase.zip && rm pocketbase.zip
+
+# Start PocketBase
+./pocketbase serve
 ```
+
+1. Visit http://127.0.0.1:8090/_/ and create admin account
+2. Go to **Settings** → **Import collections**
+3. Paste contents of `pocketbase/pb_schema.json`
+4. Click **Import**
+
+### Environment Variables
+
+Copy `.env.example` to `.env.local`:
+
+```bash
+cp .env.example .env.local
+```
+
+Update `NEXT_PUBLIC_POCKETBASE_URL` for production.
+
+---
+
+## 🖥️ VPS Deployment (Zo Computer)
+
+### 1. Server Requirements
+
+- Linux VPS (Ubuntu 22.04+ recommended)
+- 1GB RAM minimum
+- Node.js 18+ and npm
+- nginx (reverse proxy)
+
+### 2. PocketBase Setup
+
+```bash
+# SSH into your VPS
+ssh user@your-zo-computer.com
+
+# Create directory
+mkdir -p /opt/artifact-research
+cd /opt/artifact-research
+
+# Download PocketBase
+curl -L https://github.com/pocketbase/pocketbase/releases/download/v0.35.1/pocketbase_0.35.1_linux_amd64.zip -o pocketbase.zip
+unzip pocketbase.zip && rm pocketbase.zip
+
+# Create systemd service
+sudo tee /etc/systemd/system/pocketbase.service > /dev/null <<EOF
+[Unit]
+Description=PocketBase
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/artifact-research
+ExecStart=/opt/artifact-research/pocketbase serve --http="127.0.0.1:8090"
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Start PocketBase
+sudo systemctl enable pocketbase
+sudo systemctl start pocketbase
+```
+
+### 3. Frontend Deployment
+
+```bash
+# Clone repository
+cd /opt
+git clone https://github.com/[username]/artifact-research-app.git
+cd artifact-research-app
+
+# Install dependencies
+npm install
+
+# Create production env
+echo "NEXT_PUBLIC_POCKETBASE_URL=https://your-domain.com/api" > .env.local
+
+# Build
+npm run build
+
+# Install PM2 (process manager)
+npm install -g pm2
+
+# Start Next.js
+pm2 start npm --name "artifact-research" -- start
+pm2 save
+pm2 startup
+```
+
+### 4. Nginx Configuration
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    # Next.js frontend
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # PocketBase API
+    location /api/ {
+        rewrite ^/api/(.*) /$1 break;
+        proxy_pass http://127.0.0.1:8090;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # PocketBase Admin (optional, restrict access)
+    location /_/ {
+        proxy_pass http://127.0.0.1:8090;
+        # Add IP restriction for admin access
+        # allow YOUR_IP;
+        # deny all;
+    }
+}
+```
+
+```bash
+# Enable site and restart nginx
+sudo ln -s /etc/nginx/sites-available/artifact-research /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+### 5. SSL Certificate (Let's Encrypt)
+
+```bash
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.com
+```
+
+---
+
+## 📊 Data Collections
+
+| Collection | Purpose |
+|------------|---------|
+| `participants` | User profile and consent |
+| `sessions` | Survey session tracking |
+| `intent_responses` | Core research (freeform text) |
+| `session_feedback` | Reflection responses |
+
+---
+
+## 🔒 Backup Strategy
+
+```bash
+# Manual backup
+cd /opt/artifact-research
+./pocketbase backup
+
+# Automated daily backup (add to crontab)
+0 3 * * * cd /opt/artifact-research && ./pocketbase backup
+```
+
+---
 
 ## Documentation
 
-See [docs/Document-Structure-&-IA-Research.md](docs/Document-Structure-&-IA-Research.md) for the complete research specification including:
-
-- Research objectives and methodology
-- Screen-by-screen specifications
-- Data model (PocketBase collections)
-- Build phases and roadmap
-- Value hypotheses to validate
-
-## Build Phases
-
-### Phase 0: Weekend MVP ✅
-Core survey flow with intent capture
-
-### Phase 1: Iteration (Planned)
-Add clarifying question logic and Arnold-style interpretation
-
-### Phase 2: Expansion (Planned)
-Card sort interface, second stimulus, automated scoring
-
-## Contributing
-
-This is an internal research project for Artifact.
+See [docs/](docs/) for:
+- [Research Specification](docs/Document-Structure-&-IA-Research.md)
+- [Documentation Index](docs/README.md)
 
 ## License
 
