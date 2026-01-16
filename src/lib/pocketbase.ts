@@ -69,3 +69,15 @@ export interface SessionFeedbackRecord {
     created?: string;
     updated?: string;
 }
+
+// Phase 1: Clarifying Questions
+export interface ClarifyingResponseRecord {
+    id?: string;
+    session: string; // relation ID
+    questions_shown: string; // JSON array of question IDs
+    responses: string; // JSON object {question_id: response_text}
+    skipped: boolean;
+    submitted_at: string;
+    created?: string;
+    updated?: string;
+}

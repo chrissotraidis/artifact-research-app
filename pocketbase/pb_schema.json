@@ -288,5 +288,49 @@
         "createRule": "",
         "updateRule": null,
         "deleteRule": null
+    },
+    {
+        "name": "clarifying_responses",
+        "type": "base",
+        "schema": [
+            {
+                "name": "session",
+                "type": "relation",
+                "required": true,
+                "options": {
+                    "collectionId": "sessions",
+                    "cascadeDelete": false,
+                    "minSelect": null,
+                    "maxSelect": 1,
+                    "displayFields": null
+                }
+            },
+            {
+                "name": "questions_shown",
+                "type": "json",
+                "required": true
+            },
+            {
+                "name": "responses",
+                "type": "json",
+                "required": true
+            },
+            {
+                "name": "skipped",
+                "type": "bool",
+                "required": true
+            },
+            {
+                "name": "submitted_at",
+                "type": "date",
+                "required": true
+            }
+        ],
+        "indexes": [],
+        "listRule": null,
+        "viewRule": null,
+        "createRule": "",
+        "updateRule": null,
+        "deleteRule": null
     }
 ]

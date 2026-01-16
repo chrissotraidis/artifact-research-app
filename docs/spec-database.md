@@ -106,6 +106,20 @@ Core research artifact — the freeform text describing the user's ideal app.
 
 ---
 
+### clarifying_responses
+
+Phase 1 feature — follow-up questions based on missing spec dimensions.
+
+| Field | Type | Required | Options |
+|-------|------|----------|---------|
+| `session` | relation | ✓ | → sessions |
+| `questions_shown` | json | ✓ | Array of question IDs |
+| `responses` | json | ✓ | Object {question_id: response_text} |
+| `skipped` | bool | ✓ | |
+| `submitted_at` | date | ✓ | |
+
+---
+
 ### session_feedback
 
 Post-task reflection responses.
