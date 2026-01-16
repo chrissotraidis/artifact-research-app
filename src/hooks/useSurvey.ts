@@ -211,15 +211,24 @@ export function useSurvey(): UseSurveyReturn {
                 [step]: screenTimes[step] + timeOnReflection
             };
 
-            const submissionData = {
-                ...formData,
-                time_spent_seconds: duration,
-                screen_times: finalScreenTimes,
-                submittedAt: new Date().toISOString(),
-                appVersion: '2.1.0-nextjs',
-            };
+            // Import API dynamically to avoid SSR issues
+            const { submitSurvey } = await import('@/lib/api');
 
-            surveyLogger.info('Survey submission', submissionData);
+            // Submit to PocketBase
+            const result = await submitSurvey(formData, finalScreenTimes, duration);
+
+            if (result.success) {
+                surveyLogger.info('Submission successful', {
+                    participantId: result.participantId,
+                    sessionId: result.sessionId
+                });
+            } else {
+                surveyLogger.warn('Submission to database failed, but continuing', {
+                    error: result.error
+                });
+                // Still proceed - data was logged for recovery
+            }
+
             analyticsLogger.info('Session completed', {
                 duration_seconds: duration,
                 word_count: formData.intentDescription.trim().split(/\s+/).filter(Boolean).length,
@@ -227,10 +236,8 @@ export function useSurvey(): UseSurveyReturn {
                 segment: formData.segment,
                 followup_interest: formData.followUpInterest,
                 screen_times: finalScreenTimes,
+                db_success: result.success,
             });
-
-            // TODO: Add Firebase/PocketBase submission here
-            // await submitToBackend(formData, duration);
 
             // Clear saved state on successful submission
             if (typeof window !== 'undefined') {
@@ -239,7 +246,6 @@ export function useSurvey(): UseSurveyReturn {
 
             // Go to thank you screen
             nextStep();
-            surveyLogger.info('Submission successful');
         } catch (error) {
             surveyLogger.error('Submission failed', { error: String(error) });
             throw error;

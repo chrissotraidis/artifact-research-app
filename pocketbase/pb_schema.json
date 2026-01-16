@@ -1,0 +1,292 @@
+[
+    {
+        "name": "participants",
+        "type": "base",
+        "schema": [
+            {
+                "name": "name",
+                "type": "text",
+                "required": true,
+                "options": {
+                    "min": 1,
+                    "max": 100
+                }
+            },
+            {
+                "name": "email",
+                "type": "email",
+                "required": false,
+                "options": {
+                    "exceptDomains": null,
+                    "onlyDomains": null
+                }
+            },
+            {
+                "name": "segment",
+                "type": "select",
+                "required": true,
+                "options": {
+                    "maxSelect": 1,
+                    "values": [
+                        "Technical-adjacent",
+                        "Non-technical",
+                        "Engineer",
+                        "Other",
+                        "unknown"
+                    ]
+                }
+            },
+            {
+                "name": "has_written_specs",
+                "type": "select",
+                "required": false,
+                "options": {
+                    "maxSelect": 1,
+                    "values": [
+                        "Regularly",
+                        "Occasionally",
+                        "Rarely / Never",
+                        "unknown"
+                    ]
+                }
+            },
+            {
+                "name": "vibe_coding_experience",
+                "type": "select",
+                "required": false,
+                "options": {
+                    "maxSelect": 1,
+                    "values": [
+                        "Extensive",
+                        "Little",
+                        "KnowNotUsed",
+                        "DontKnow",
+                        "unknown"
+                    ]
+                }
+            },
+            {
+                "name": "consent_given",
+                "type": "bool",
+                "required": true
+            },
+            {
+                "name": "consent_timestamp",
+                "type": "date",
+                "required": true
+            },
+            {
+                "name": "open_to_followup",
+                "type": "bool",
+                "required": false
+            }
+        ],
+        "indexes": [],
+        "listRule": null,
+        "viewRule": null,
+        "createRule": "",
+        "updateRule": null,
+        "deleteRule": null
+    },
+    {
+        "name": "sessions",
+        "type": "base",
+        "schema": [
+            {
+                "name": "participant",
+                "type": "relation",
+                "required": true,
+                "options": {
+                    "collectionId": "participants",
+                    "cascadeDelete": false,
+                    "minSelect": null,
+                    "maxSelect": 1,
+                    "displayFields": null
+                }
+            },
+            {
+                "name": "stimulus",
+                "type": "text",
+                "required": true,
+                "options": {
+                    "min": 1,
+                    "max": 100
+                }
+            },
+            {
+                "name": "stimulus_familiarity",
+                "type": "select",
+                "required": false,
+                "options": {
+                    "maxSelect": 1,
+                    "values": [
+                        "Very familiar (I use one regularly)",
+                        "Somewhat familiar",
+                        "Not very familiar",
+                        "unknown"
+                    ]
+                }
+            },
+            {
+                "name": "started_at",
+                "type": "date",
+                "required": true
+            },
+            {
+                "name": "completed_at",
+                "type": "date",
+                "required": false
+            },
+            {
+                "name": "duration_seconds",
+                "type": "number",
+                "required": false,
+                "options": {
+                    "min": 0,
+                    "max": null,
+                    "noDecimal": true
+                }
+            }
+        ],
+        "indexes": [],
+        "listRule": null,
+        "viewRule": null,
+        "createRule": "",
+        "updateRule": null,
+        "deleteRule": null
+    },
+    {
+        "name": "intent_responses",
+        "type": "base",
+        "schema": [
+            {
+                "name": "session",
+                "type": "relation",
+                "required": true,
+                "options": {
+                    "collectionId": "sessions",
+                    "cascadeDelete": false,
+                    "minSelect": null,
+                    "maxSelect": 1,
+                    "displayFields": null
+                }
+            },
+            {
+                "name": "raw_text",
+                "type": "text",
+                "required": true,
+                "options": {
+                    "min": 1,
+                    "max": 50000
+                }
+            },
+            {
+                "name": "word_count",
+                "type": "number",
+                "required": true,
+                "options": {
+                    "min": 0,
+                    "max": null,
+                    "noDecimal": true
+                }
+            },
+            {
+                "name": "time_spent_seconds",
+                "type": "number",
+                "required": false,
+                "options": {
+                    "min": 0,
+                    "max": null,
+                    "noDecimal": true
+                }
+            },
+            {
+                "name": "hint_expanded",
+                "type": "bool",
+                "required": false
+            },
+            {
+                "name": "submitted_at",
+                "type": "date",
+                "required": true
+            }
+        ],
+        "indexes": [],
+        "listRule": null,
+        "viewRule": null,
+        "createRule": "",
+        "updateRule": null,
+        "deleteRule": null
+    },
+    {
+        "name": "session_feedback",
+        "type": "base",
+        "schema": [
+            {
+                "name": "session",
+                "type": "relation",
+                "required": true,
+                "options": {
+                    "collectionId": "sessions",
+                    "cascadeDelete": false,
+                    "minSelect": null,
+                    "maxSelect": 1,
+                    "displayFields": null
+                }
+            },
+            {
+                "name": "difficulty_rating",
+                "type": "number",
+                "required": true,
+                "options": {
+                    "min": 1,
+                    "max": 5,
+                    "noDecimal": true
+                }
+            },
+            {
+                "name": "felt_vocabulary_gap",
+                "type": "select",
+                "required": false,
+                "options": {
+                    "maxSelect": 1,
+                    "values": [
+                        "Yes",
+                        "No",
+                        "Unsure",
+                        "unknown"
+                    ]
+                }
+            },
+            {
+                "name": "vocabulary_gap_details",
+                "type": "text",
+                "required": false,
+                "options": {
+                    "min": null,
+                    "max": 2000
+                }
+            },
+            {
+                "name": "open_feedback",
+                "type": "text",
+                "required": false,
+                "options": {
+                    "min": null,
+                    "max": 5000
+                }
+            },
+            {
+                "name": "submitted_at",
+                "type": "date",
+                "required": true
+            }
+        ],
+        "indexes": [],
+        "listRule": null,
+        "viewRule": null,
+        "createRule": "",
+        "updateRule": null,
+        "deleteRule": null
+    }
+]
