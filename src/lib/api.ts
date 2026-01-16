@@ -11,6 +11,7 @@ import pb, {
     SessionRecord,
     IntentResponseRecord,
     SessionFeedbackRecord,
+    ClarifyingResponseRecord,
 } from './pocketbase';
 import { surveyLogger, analyticsLogger } from './logger';
 import { SurveyFormData, SurveyStep } from '@/types/survey';
@@ -20,6 +21,7 @@ const COLLECTIONS = {
     PARTICIPANTS: 'participants',
     SESSIONS: 'sessions',
     INTENT_RESPONSES: 'intent_responses',
+    CLARIFYING_RESPONSES: 'clarifying_responses',
     SESSION_FEEDBACK: 'session_feedback',
 } as const;
 
@@ -116,6 +118,20 @@ export async function createSessionFeedback(
 }
 
 /**
+ * Create clarifying responses record (Phase 1)
+ */
+export async function createClarifyingResponse(
+    data: Omit<ClarifyingResponseRecord, 'id' | 'created' | 'updated'>
+): Promise<ClarifyingResponseRecord> {
+    surveyLogger.info('Creating clarifying response record');
+
+    const record = await pb.collection(COLLECTIONS.CLARIFYING_RESPONSES).create<ClarifyingResponseRecord>(data);
+
+    surveyLogger.info('Clarifying response saved', { id: record.id, skipped: data.skipped });
+    return record;
+}
+
+/**
  * Submit the complete survey
  * Orchestrates creating all records in the correct order
  */
@@ -177,7 +193,19 @@ export async function submitSurvey(
             submitted_at: new Date().toISOString(),
         });
 
-        // 4. Create session feedback
+        // 4. Create clarifying response (Phase 1) - only if there were questions shown
+        const questionsShown = formData.clarifyingQuestionsShown || Object.keys(formData.clarifyingResponses);
+        if (questionsShown.length > 0 || formData.clarifyingSkipped) {
+            await createClarifyingResponse({
+                session: session.id!,
+                questions_shown: JSON.stringify(questionsShown),
+                responses: JSON.stringify(formData.clarifyingResponses),
+                skipped: formData.clarifyingSkipped,
+                submitted_at: new Date().toISOString(),
+            });
+        }
+
+        // 5. Create session feedback
         await createSessionFeedback({
             session: session.id!,
             difficulty_rating: formData.difficultyRating || 0,

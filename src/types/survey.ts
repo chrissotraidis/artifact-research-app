@@ -10,12 +10,17 @@ export interface SurveyFormData {
     vibe_coding_experience: VibeCodingExperience | '';
 
     // Stimulus (Todo App MVP)
-    stimulus: 'todo_app';
+    stimulus: 'todo_app' | 'booking_system';
     stimulus_familiarity: StimulusFamiliarity | '';
 
     // Intent Capture
     intentDescription: string;
     hint_expanded: boolean;
+
+    // Clarifying Questions (Phase 1)
+    clarifyingResponses: Record<string, string>;
+    clarifyingSkipped: boolean;
+    clarifyingQuestionsShown: string[];
 
     // Reflection
     difficultyRating: number | null;
@@ -58,8 +63,8 @@ export type YesNo = 'Yes' | 'No';
 // Vocab gap response
 export type VocabGapResponse = 'Yes' | 'No' | 'Unsure';
 
-// Survey step indices
-export type SurveyStep = 0 | 1 | 2 | 3 | 4 | 5;
+// Survey step indices (7 screens with clarifying questions)
+export type SurveyStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 // Initial form state
 export const initialFormData: SurveyFormData = {
@@ -72,6 +77,9 @@ export const initialFormData: SurveyFormData = {
     stimulus_familiarity: '',
     intentDescription: '',
     hint_expanded: false,
+    clarifyingResponses: {},
+    clarifyingSkipped: false,
+    clarifyingQuestionsShown: [],
     difficultyRating: null,
     vocabGap: '',
     difficultyDescription: '',

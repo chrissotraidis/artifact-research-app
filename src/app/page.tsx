@@ -8,6 +8,7 @@ import {
   IntakeScreen,
   StimulusScreen,
   IntentCaptureScreen,
+  ClarifyingQuestionsScreen,
   ReflectionScreen,
   ThankYouScreen,
 } from '@/components/screens';
@@ -72,6 +73,26 @@ export default function SurveyPage() {
 
       case 4:
         return (
+          <ClarifyingQuestionsScreen
+            intentText={formData.intentDescription}
+            responses={formData.clarifyingResponses}
+            skipped={formData.clarifyingSkipped}
+            onResponseChange={(questionId, value) => {
+              updateField('clarifyingResponses', {
+                ...formData.clarifyingResponses,
+                [questionId]: value,
+              });
+            }}
+            onSkip={() => {
+              updateField('clarifyingSkipped', true);
+              nextStep();
+            }}
+            onContinue={nextStep}
+          />
+        );
+
+      case 5:
+        return (
           <ReflectionScreen
             difficultyRating={formData.difficultyRating}
             vocabGap={formData.vocabGap}
@@ -90,7 +111,7 @@ export default function SurveyPage() {
           />
         );
 
-      case 5:
+      case 6:
         return <ThankYouScreen />;
 
       default:

@@ -31,8 +31,9 @@ const SCREEN_NAMES: Record<SurveyStep, string> = {
     1: 'Intake',
     2: 'Stimulus',
     3: 'IntentCapture',
-    4: 'Reflection',
-    5: 'ThankYou',
+    4: 'ClarifyingQuestions',
+    5: 'Reflection',
+    6: 'ThankYou',
 };
 
 // LocalStorage key for persistence
@@ -75,7 +76,7 @@ export function useSurvey(): UseSurveyReturn {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
     const [screenTimes, setScreenTimes] = useState<Record<SurveyStep, number>>({
-        0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0
+        0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0
     });
     const [isHydrated, setIsHydrated] = useState(false);
 
